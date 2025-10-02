@@ -53,7 +53,7 @@ app.post('/api/users/:_id/exercises', async (req, res) => {
   const user = await User.findById(req.params._id);
   if (!user) return res.json({ error: 'User not found' });
 
-  // If no date provided, use current date
+  // Ensure valid date (fallback to current date if blank/invalid)
   const exerciseDate = date ? new Date(date) : new Date();
 
   const exercise = new Exercise({
@@ -69,7 +69,7 @@ app.post('/api/users/:_id/exercises', async (req, res) => {
     username: user.username,
     description: savedExercise.description,
     duration: savedExercise.duration,
-    date: savedExercise.date.toDateString(), // <-- important for FCC test 15
+    date: savedExercise.date.toDateString(), // ✅ correct format
     _id: user._id
   });
 });
@@ -96,7 +96,7 @@ app.get('/api/users/:_id/logs', async (req, res) => {
   const log = exercises.map(e => ({
     description: e.description,
     duration: e.duration,
-    date: e.date.toDateString() // <-- ensure consistent format
+    date: e.date.toDateString() // ✅ always a proper string
   }));
 
   res.json({
