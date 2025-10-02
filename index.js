@@ -86,16 +86,21 @@ app.get('/api/users/:_id/logs', async (req, res) => {
 
   const exercises = await Exercise.find(filter).limit(parseInt(limit) || 500);
 
-  res.json({
-    username: user.username,
-    count: exercises.length,
-    _id: user._id,
-    log: exercises.map(e => ({
-      description: e.description,
-      duration: e.duration,
-      date: e.date ? e.date.toDateString() : new Date().toDateString()
-    }))
-  });
+  log: exercises.map(e => {
+  let formattedDate = 'Invalid Date';
+  try {
+    formattedDate = new Date(e.date).toDateString();
+  } catch (_) {
+    formattedDate = new Date().toDateString();
+  }
+
+  return {
+    description: e.description,
+    duration: e.duration,
+    date: formattedDate
+  };
+})
+
 });
 
 const listener = app.listen(process.env.PORT || 3000, () => {
