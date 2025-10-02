@@ -1,14 +1,15 @@
 const express = require('express');
-const app = express();
-const cors = require('cors');
 const mongoose = require('mongoose');
+const cors = require('cors');
 require('dotenv').config();
 
+const app = express();
 app.use(cors());
 app.use(express.static('public'));
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
 
+// Connect to MongoDB
 mongoose.connect(process.env.MONGO_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true
@@ -21,9 +22,9 @@ const userSchema = new mongoose.Schema({
 
 const exerciseSchema = new mongoose.Schema({
   userId: { type: String, required: true },
-  description: { type: String, required: true },
-  duration: { type: Number, required: true },
-  date: { type: Date, default: Date.now }
+  description: String,
+  duration: Number,
+  date: Date
 });
 
 const User = mongoose.model('User', userSchema);
@@ -44,7 +45,7 @@ app.post('/api/users', async (req, res) => {
 // Get all users
 app.get('/api/users', async (req, res) => {
   const users = await User.find({});
-  res.json(users.map(u => ({ username: u.username, _id: u._id })));
+  res.json(users);
 });
 
 // Add exercise
@@ -53,8 +54,7 @@ app.post('/api/users/:_id/exercises', async (req, res) => {
   const user = await User.findById(req.params._id);
   if (!user) return res.json({ error: 'User not found' });
 
-  // Ensure valid date (fallback to current date if blank/invalid)
-  const exerciseDate = date ? new Date(date) : new Date();
+  const exerciseDate = date && date !== '' ? new Date(date) : new Date();
 
   const exercise = new Exercise({
     userId: user._id,
@@ -69,7 +69,7 @@ app.post('/api/users/:_id/exercises', async (req, res) => {
     username: user.username,
     description: savedExercise.description,
     duration: savedExercise.duration,
-    date: savedExercise.date.toDateString(), // ✅ correct format
+    date: savedExercise.date.toDateString(),
     _id: user._id
   });
 });
@@ -81,22 +81,18 @@ app.get('/api/users/:_id/logs', async (req, res) => {
   if (!user) return res.json({ error: 'User not found' });
 
   let filter = { userId: user._id };
-
   if (from || to) {
     filter.date = {};
     if (from) filter.date.$gte = new Date(from);
     if (to) filter.date.$lte = new Date(to);
   }
 
-  let query = Exercise.find(filter);
-  if (limit) query = query.limit(parseInt(limit));
-
-  const exercises = await query.exec();
+  const exercises = await Exercise.find(filter).limit(parseInt(limit) || 500);
 
   const log = exercises.map(e => ({
     description: e.description,
     duration: e.duration,
-    date: e.date.toDateString() // ✅ always a proper string
+    date: new Date(e.date).toDateString()
   }));
 
   res.json({
