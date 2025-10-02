@@ -57,7 +57,7 @@ app.post('/api/users/:_id/exercises', async (req, res) => {
     userId: user._id,
     description,
     duration: parseInt(duration),
-    date: date && date !== '' ? new Date(date) : new Date()
+    date: date ? new Date(date) : new Date()
   });
 
   const savedExercise = await exercise.save();
@@ -86,17 +86,29 @@ app.get('/api/users/:_id/logs', async (req, res) => {
 
   const exercises = await Exercise.find(filter).limit(parseInt(limit) || 500);
 
-  res.json({
-    username: user.username,
-    count: exercises.length,
-    _id: user._id,
-    log: exercises.map(e => ({
+  const log = exercises.map(e => {
+    let formattedDate = 'Invalid Date';
+    if (e.date instanceof Date && !isNaN(e.date)) {
+      formattedDate = e.date.toDateString();
+    } else {
+      formattedDate = new Date(e.date).toDateString();
+    }
+
+    return {
       description: e.description,
       duration: e.duration,
-      date: e.date ? e.date.toDateString() : new Date().toDateString()
-    }))
+      date: formattedDate
+    };
+  });
+
+  res.json({
+    username: user.username,
+    count: log.length,
+    _id: user._id,
+    log
   });
 });
+
 
 const listener = app.listen(process.env.PORT || 3000, () => {
   console.log('Your app is listening on port ' + listener.address().port);
