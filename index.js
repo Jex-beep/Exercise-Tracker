@@ -91,58 +91,46 @@ app.post('/api/users/:_id/exercises', async (req, res) => {
 });
 
 // Get logs
+// Get logs
 app.get('/api/users/:_id/logs', async (req, res) => {
-  try {
-    const { from, to, limit } = req.query;
-    const user = await User.findById(req.params._id);
-    if (!user) return res.json({ error: 'User not found' });
+  const { from, to, limit } = req.query;
+  const user = await User.findById(req.params._id);
+  if (!user) return res.json({ error: 'User not found' });
 
-    let filter = { userId: user._id };
+  let filter = { userId: user._id };
 
-    // from/to: only attach if valid date strings
-    if (from || to) {
-      filter.date = {};
-      if (from) {
-        const fromDate = new Date(from);
-        if (!isNaN(fromDate)) filter.date.$gte = fromDate;
-      }
-      if (to) {
-        const toDate = new Date(to);
-        if (!isNaN(toDate)) filter.date.$lte = toDate;
-      }
-      // If both were invalid, remove date filter entirely
-      if (Object.keys(filter.date).length === 0) delete filter.date;
+  if (from || to) {
+    filter.date = {};
+    if (from) filter.date.$gte = new Date(from);
+    if (to) filter.date.$lte = new Date(to);
+  }
+
+  const exercises = await Exercise.find(filter).limit(parseInt(limit) || 500);
+
+  const log = exercises.map(e => {
+    // ensure we always return a proper date string
+    let dateString;
+    if (e.date instanceof Date && !isNaN(e.date)) {
+      dateString = e.date.toDateString();
+    } else {
+      dateString = new Date().toDateString(); // fallback if null/invalid
     }
 
-    // parse limit safely
-    const parsedLimit = parseInt(limit);
-    const query = Exercise.find(filter).sort({ date: 1 }); // sort by date ascending
-    if (!isNaN(parsedLimit)) query.limit(parsedLimit);
+    return {
+      description: e.description,
+      duration: e.duration,
+      date: dateString
+    };
+  });
 
-    const exercises = await query.exec();
-
-    // Guarantee the date is always a Date string using toDateString()
-    const log = exercises.map(e => {
-      // ensure we have a valid Date object
-      const d = e.date ? new Date(e.date) : new Date();
-      const dateString = isNaN(d.getTime()) ? new Date().toDateString() : d.toDateString();
-      return {
-        description: e.description,
-        duration: e.duration,
-        date: dateString
-      };
-    });
-
-    res.json({
-      username: user.username,
-      count: log.length,
-      _id: user._id.toString(),
-      log
-    });
-  } catch (err) {
-    res.status(500).json({ error: 'Could not retrieve logs' });
-  }
+  res.json({
+    username: user.username,
+    count: log.length,
+    _id: user._id,
+    log
+  });
 });
+
 
 const listener = app.listen(process.env.PORT || 3000, () => {
   console.log('Your app is listening on port ' + listener.address().port);
