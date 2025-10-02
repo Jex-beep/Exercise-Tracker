@@ -74,7 +74,6 @@ app.post('/api/users/:_id/exercises', async (req, res) => {
   });
 });
 
-// Get logs
 app.get('/api/users/:_id/logs', async (req, res) => {
   const { from, to, limit } = req.query;
   const user = await User.findById(req.params._id);
@@ -89,11 +88,13 @@ app.get('/api/users/:_id/logs', async (req, res) => {
 
   const exercises = await Exercise.find(filter).limit(parseInt(limit) || 500);
 
-  const log = exercises.map(e => ({
-    description: e.description,
-    duration: e.duration,
-    date: new Date(e.date).toDateString()
-  }));
+  const log = exercises.map(e => {
+    return {
+      description: e.description,
+      duration: e.duration,
+      date: new Date(e.date).toDateString() // ✅ Ensures string format
+    };
+  });
 
   res.json({
     username: user.username,
@@ -102,6 +103,7 @@ app.get('/api/users/:_id/logs', async (req, res) => {
     log
   });
 });
+
 
 const listener = app.listen(process.env.PORT || 3000, () => {
   console.log('Your app is listening on port ' + listener.address().port);
