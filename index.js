@@ -53,11 +53,13 @@ app.post('/api/users/:_id/exercises', async (req, res) => {
   const user = await User.findById(req.params._id);
   if (!user) return res.json({ error: 'User not found' });
 
+  const exerciseDate = date && date !== '' ? new Date(date) : new Date();
+
   const exercise = new Exercise({
     userId: user._id,
     description,
     duration: parseInt(duration),
-    date: date ? new Date(date) : new Date()
+    date: exerciseDate
   });
 
   const savedExercise = await exercise.save();
@@ -86,20 +88,11 @@ app.get('/api/users/:_id/logs', async (req, res) => {
 
   const exercises = await Exercise.find(filter).limit(parseInt(limit) || 500);
 
-  const log = exercises.map(e => {
-    let formattedDate = 'Invalid Date';
-    if (e.date instanceof Date && !isNaN(e.date)) {
-      formattedDate = e.date.toDateString();
-    } else {
-      formattedDate = new Date(e.date).toDateString();
-    }
-
-    return {
-      description: e.description,
-      duration: e.duration,
-      date: formattedDate
-    };
-  });
+  const log = exercises.map(e => ({
+    description: e.description,
+    duration: e.duration,
+    date: new Date(e.date).toDateString()
+  }));
 
   res.json({
     username: user.username,
@@ -108,7 +101,6 @@ app.get('/api/users/:_id/logs', async (req, res) => {
     log
   });
 });
-
 
 const listener = app.listen(process.env.PORT || 3000, () => {
   console.log('Your app is listening on port ' + listener.address().port);
