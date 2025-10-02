@@ -21,18 +21,21 @@ const userSchema = new mongoose.Schema({
 });
 
 const exerciseSchema = new mongoose.Schema({
-  userId: { type: String, required: true },
-  description: String,
-  duration: Number,
-  date: Date
+  userId: String,
+  username: String,
+  description: { type: String, required: true },
+  duration: { type: Number, required: true },
+  date: String // Stored as string for consistent formatting
 });
 
 const User = mongoose.model('User', userSchema);
 const Exercise = mongoose.model('Exercise', exerciseSchema);
 
 // Routes
-app.get('/', (req, res) => {
+app.get('/', async (_req, res) => {
   res.sendFile(__dirname + '/views/index.html');
+  await User.syncIndexes();
+  await Exercise.syncIndexes();
 });
 
 // Create user
@@ -43,7 +46,7 @@ app.post('/api/users', async (req, res) => {
 });
 
 // Get all users
-app.get('/api/users', async (req, res) => {
+app.get('/api/users', async (_req, res) => {
   const users = await User.find({});
   res.json(users);
 });
@@ -54,10 +57,11 @@ app.post('/api/users/:_id/exercises', async (req, res) => {
   const user = await User.findById(req.params._id);
   if (!user) return res.json({ error: 'User not found' });
 
-  const exerciseDate = date && date !== '' ? new Date(date) : new Date();
+  const exerciseDate = date ? date : new Date().toISOString().substring(0, 10);
 
   const exercise = new Exercise({
     userId: user._id,
+    username: user.username,
     description,
     duration: parseInt(duration),
     date: exerciseDate
@@ -69,41 +73,52 @@ app.post('/api/users/:_id/exercises', async (req, res) => {
     username: user.username,
     description: savedExercise.description,
     duration: savedExercise.duration,
-    date: savedExercise.date.toDateString(),
+    date: new Date(savedExercise.date).toDateString(),
     _id: user._id
   });
 });
 
+// Get logs
 app.get('/api/users/:_id/logs', async (req, res) => {
   const { from, to, limit } = req.query;
   const user = await User.findById(req.params._id);
   if (!user) return res.json({ error: 'User not found' });
 
-  let filter = { userId: user._id };
-  if (from || to) {
-    filter.date = {};
-    if (from) filter.date.$gte = new Date(from);
-    if (to) filter.date.$lte = new Date(to);
-  }
+  const fromDate = from || new Date(0).toISOString().substring(0, 10);
+  const toDate = to || new Date().toISOString().substring(0, 10);
 
-  const exercises = await Exercise.find(filter).limit(parseInt(limit) || 500);
+  const exercises = await Exercise.find({
+    userId: req.params._id,
+    date: { $gte: fromDate, $lte: toDate }
+  })
+    .select('description duration date')
+    .limit(parseInt(limit) || 500);
 
-  const log = exercises.map(e => {
-    return {
-      description: e.description,
-      duration: e.duration,
-      date: new Date(e.date).toDateString() // ✅ Ensures string format
-    };
-  });
+  const log = exercises.map(e => ({
+    description: e.description,
+    duration: e.duration,
+    date: new Date(e.date).toDateString()
+  }));
 
   res.json({
+    _id: user._id,
     username: user.username,
     count: log.length,
-    _id: user._id,
     log
   });
 });
 
+// Admin: Delete all users
+app.get('/api/users/delete', async (_req, res) => {
+  const result = await User.deleteMany({});
+  res.json({ message: 'All users deleted', result });
+});
+
+// Admin: Delete all exercises
+app.get('/api/exercises/delete', async (_req, res) => {
+  const result = await Exercise.deleteMany({});
+  res.json({ message: 'All exercises deleted', result });
+});
 
 const listener = app.listen(process.env.PORT || 3000, () => {
   console.log('Your app is listening on port ' + listener.address().port);
