@@ -57,7 +57,7 @@ app.post('/api/users/:_id/exercises', async (req, res) => {
     userId: user._id,
     description,
     duration: parseInt(duration),
-    date: date ? new Date(date) : new Date()
+    date: date && date !== '' ? new Date(date) : new Date()
   });
 
   const savedExercise = await exercise.save();
@@ -93,7 +93,7 @@ app.get('/api/users/:_id/logs', async (req, res) => {
     log: exercises.map(e => ({
       description: e.description,
       duration: e.duration,
-      date: e.date.toDateString()
+      date: e.date ? e.date.toDateString() : new Date().toDateString()
     }))
   });
 });
